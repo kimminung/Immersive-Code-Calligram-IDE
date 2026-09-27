@@ -15,7 +15,7 @@ final class AppModel {
 
     // MARK: - Editor state
 
-    var source: String = CalligramSamples.helix.source {
+    var source: String = CalligramSamples.initial.source {
         didSet {
             guard source != oldValue else { return }
             if isLivePreviewEnabled { scheduleLiveRun() }
@@ -34,6 +34,12 @@ final class AppModel {
     private(set) var diagnostics: [CalligramDiagnostic] = []
     private(set) var isRunning = false
 
+    /// Mathematical notation of the last program that parsed successfully.
+    private(set) var formulaText = ""
+
+    /// Whether the editor shows the math-notation panel below the code.
+    var isFormulaPanelVisible = true
+
     /// Increments whenever the rendered scene must be rebuilt (new output or new settings).
     private(set) var revision = 0
 
@@ -51,6 +57,11 @@ final class AppModel {
     // MARK: - Derived
 
     var glyphCount: Int { output?.points.count ?? 0 }
+
+    /// Description of the built-in sample currently in the editor, if the text is unmodified.
+    var activeSampleSummary: String? {
+        CalligramSamples.all.first { $0.source == source }?.summary
+    }
 
     var statusText: String {
         if isRunning { return "실행 중…" }
@@ -96,6 +107,9 @@ final class AppModel {
             return
         }
         diagnostics = result.diagnostics
+        if let formula = result.formula {
+            formulaText = formula
+        }
         // Keep the previous shape visible when the new program fails to parse.
         if let newOutput = result.output {
             output = newOutput

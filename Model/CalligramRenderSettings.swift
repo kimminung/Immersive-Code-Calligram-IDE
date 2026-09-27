@@ -24,6 +24,13 @@ nonisolated struct CalligramRenderSettings: Sendable, Equatable {
     var isSpinning = true
     var spinSpeed: Float = 0.25
 
+    /// Builds every glyph as two perpendicular quads (an "X" seen from above) so the calligram
+    /// never turns edge-on and vanishes while it spins or when viewed from the side.
+    var alwaysVisible = true
+
+    /// Strength of the view-angle dependent hue shift (0 = flat color, 1 = full rainbow sweep).
+    var iridescence: Float = 0.65
+
     /// Where the entity sits in the immersive space (meters, relative to the floor origin).
     var immersivePosition = SIMD3<Float>(0, 1.4, -1.6)
 }

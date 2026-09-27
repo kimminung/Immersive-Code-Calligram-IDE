@@ -15,7 +15,7 @@ nonisolated struct CalligramMeshData: Sendable {
     var quadCount: Int { positions.count / 4 }
 }
 
-/// Turns emitted points into one quad per glyph, sharing a single glyph-atlas texture.
+/// Turns emitted points into one (or two crossed) quads per glyph, sharing a single glyph-atlas texture.
 nonisolated enum CalligramMeshBuilder {
     static let maxPaletteSize = 48
     private static let quantizationSteps: Float = 31
@@ -24,11 +24,12 @@ nonisolated enum CalligramMeshBuilder {
         var data = CalligramMeshData()
         guard !points.isEmpty else { return data }
 
-        data.positions.reserveCapacity(points.count * 4)
-        data.normals.reserveCapacity(points.count * 4)
-        data.textureCoordinates.reserveCapacity(points.count * 4)
-        data.indices.reserveCapacity(points.count * 6)
-        data.materialIndices.reserveCapacity(points.count * 2)
+        let quadsPerGlyph = settings.alwaysVisible ? 2 : 1
+        data.positions.reserveCapacity(points.count * 4 * quadsPerGlyph)
+        data.normals.reserveCapacity(points.count * 4 * quadsPerGlyph)
+        data.textureCoordinates.reserveCapacity(points.count * 4 * quadsPerGlyph)
+        data.indices.reserveCapacity(points.count * 6 * quadsPerGlyph)
+        data.materialIndices.reserveCapacity(points.count * 2 * quadsPerGlyph)
 
         var centroid = SIMD3<Float>.zero
         for point in points { centroid += point.position }
@@ -38,32 +39,50 @@ nonisolated enum CalligramMeshBuilder {
 
         for point in points {
             let facing = facingDirection(for: point.position, centroid: centroid, mode: settings.facing)
-            let (right, up) = basis(for: facing)
             let half = point.size * settings.glyphScale * 0.5
-            let center = point.position
-
-            let base = UInt32(data.positions.count)
-            data.positions.append(center - right * half - up * half)
-            data.positions.append(center + right * half - up * half)
-            data.positions.append(center + right * half + up * half)
-            data.positions.append(center - right * half + up * half)
-
-            for _ in 0..<4 { data.normals.append(facing) }
-
             let uv = GlyphAtlasLayout.uvRect(forCell: GlyphAtlasLayout.cellIndex(for: point.glyph))
-            data.textureCoordinates.append(SIMD2<Float>(uv.min.x, uv.min.y))
-            data.textureCoordinates.append(SIMD2<Float>(uv.max.x, uv.min.y))
-            data.textureCoordinates.append(SIMD2<Float>(uv.max.x, uv.max.y))
-            data.textureCoordinates.append(SIMD2<Float>(uv.min.x, uv.max.y))
-
-            data.indices.append(contentsOf: [base, base + 1, base + 2, base, base + 2, base + 3])
-
             let materialIndex = paletteIndex(for: point.color, palette: &data.palette, lookup: &paletteLookup)
-            data.materialIndices.append(materialIndex)
-            data.materialIndices.append(materialIndex)
+
+            let primary = basis(for: facing)
+            appendQuad(into: &data, center: point.position, right: primary.right, up: primary.up,
+                       normal: facing, halfSize: half, uv: uv, materialIndex: materialIndex)
+
+            if settings.alwaysVisible {
+                // Second quad rotated 90° around the glyph's up axis: its normal is the first quad's right vector.
+                let crossFacing = primary.right
+                let secondary = basis(for: crossFacing)
+                appendQuad(into: &data, center: point.position, right: secondary.right, up: secondary.up,
+                           normal: crossFacing, halfSize: half, uv: uv, materialIndex: materialIndex)
+            }
         }
 
         return data
+    }
+
+    private static func appendQuad(into data: inout CalligramMeshData,
+                                   center: SIMD3<Float>,
+                                   right: SIMD3<Float>,
+                                   up: SIMD3<Float>,
+                                   normal: SIMD3<Float>,
+                                   halfSize half: Float,
+                                   uv: (min: SIMD2<Float>, max: SIMD2<Float>),
+                                   materialIndex: UInt32) {
+        let base = UInt32(data.positions.count)
+        data.positions.append(center - right * half - up * half)
+        data.positions.append(center + right * half - up * half)
+        data.positions.append(center + right * half + up * half)
+        data.positions.append(center - right * half + up * half)
+
+        for _ in 0..<4 { data.normals.append(normal) }
+
+        data.textureCoordinates.append(SIMD2<Float>(uv.min.x, uv.min.y))
+        data.textureCoordinates.append(SIMD2<Float>(uv.max.x, uv.min.y))
+        data.textureCoordinates.append(SIMD2<Float>(uv.max.x, uv.max.y))
+        data.textureCoordinates.append(SIMD2<Float>(uv.min.x, uv.max.y))
+
+        data.indices.append(contentsOf: [base, base + 1, base + 2, base, base + 2, base + 3])
+        data.materialIndices.append(materialIndex)
+        data.materialIndices.append(materialIndex)
     }
 
     // MARK: - Orientation

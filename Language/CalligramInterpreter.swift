@@ -50,7 +50,8 @@ nonisolated struct CalligramProgramOutput: Sendable {
 
 nonisolated struct CalligramLimits: Sendable {
     var maxEmits = 15_000
-    var maxSteps = 500_000
+    /// Raised so escape-time fractals and voxel sieves (Julia set, Menger sponge) fit comfortably.
+    var maxSteps = 1_500_000
 }
 
 /// Tree-walking interpreter for CalligramScript.
@@ -393,7 +394,8 @@ nonisolated struct CalligramInterpreter {
             return .number(low + (high - low) * nextRandom())
 
         // Pure math
-        case "sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "abs", "floor", "ceil", "round", "exp", "log", "log2", "sign":
+        case "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh",
+             "sqrt", "abs", "floor", "ceil", "round", "fract", "exp", "log", "log2", "sign":
             try expectCount(arguments, 1, name, at: location)
             let x = try number(from: arguments[0], context: name, at: location)
             switch name {
@@ -403,11 +405,15 @@ nonisolated struct CalligramInterpreter {
             case "asin": return .number(asin(x))
             case "acos": return .number(acos(x))
             case "atan": return .number(atan(x))
+            case "sinh": return .number(sinh(x))
+            case "cosh": return .number(cosh(x))
+            case "tanh": return .number(tanh(x))
             case "sqrt": return .number(sqrt(x))
             case "abs": return .number(abs(x))
             case "floor": return .number(floor(x))
             case "ceil": return .number(ceil(x))
             case "round": return .number(x.rounded())
+            case "fract": return .number(x - floor(x))
             case "exp": return .number(exp(x))
             case "log": return .number(log(x))
             case "log2": return .number(log2(x))
@@ -435,7 +441,7 @@ nonisolated struct CalligramInterpreter {
             return .number(a + (b - a) * c)
 
         default:
-            throw CalligramError(message: "알 수 없는 함수 '\(name)'. 사용 가능: emit, color, hsv, size, glyph, sin, cos, sqrt, ...", location: location)
+            throw CalligramError(message: "알 수 없는 함수 '\(name)'. 사용 가능: emit, color, hsv, size, glyph, sin, cos, sinh, sqrt, fract, ...", location: location)
         }
     }
 

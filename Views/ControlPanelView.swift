@@ -41,6 +41,25 @@ struct ControlPanelView: View {
                     }
                     .pickerStyle(.segmented)
                     Toggle("자동 회전", isOn: $model.settings.isSpinning)
+                    Toggle("항상 보이기 (교차 평면)", isOn: $model.settings.alwaysVisible)
+                    Text("글리프를 서로 직각인 두 평면으로 만들어 회전 중에도 옆면이 되어 사라지지 않습니다.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+
+                section("무지갯빛 (Iridescence)") {
+                    LabeledContent("강도") {
+                        Text(appModel.settings.iridescence.formatted(.number.precision(.fractionLength(2))))
+                            .monospacedDigit()
+                    }
+                    Slider(value: $model.settings.iridescence, in: 0...1, step: 0.05)
+                    Text("보는 각도에 따라 색상이 스펙트럼을 따라 이동합니다. 0이면 스크립트 색 그대로 표시됩니다.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+
+                section("편집기") {
+                    Toggle("수식 패널 표시", isOn: $model.isFormulaPanelVisible)
                 }
 
                 section("진단") {
@@ -83,9 +102,10 @@ struct ControlPanelView: View {
         emit(x, y, z)
         color(r, g, b[, a])  hsv(h, s, v)
         size(m)  glyph("text")
-        sin cos tan sqrt abs pow min max
-        floor ceil round exp log atan2
-        clamp(x, lo, hi) lerp(a, b, t)
+        sin cos tan asin acos atan atan2
+        sinh cosh tanh sqrt abs pow hypot
+        floor ceil round fract exp log log2
+        min max clamp(x, lo, hi) lerp(a, b, t)
         random() random(a, b) seed(n)
         PI TAU E
         """

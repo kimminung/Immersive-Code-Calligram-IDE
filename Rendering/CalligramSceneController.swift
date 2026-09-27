@@ -31,6 +31,8 @@ final class CalligramSceneController {
     private let pivot = Entity()
     private var calligramModel: ModelEntity?
     private var atlasTexture: TextureResource?
+    /// Shader-graph template with the atlas bound; `nil` when the graph failed to load.
+    private var iridescentTemplate: ShaderGraphMaterial?
     private var mode: Mode = .immersive
     private var hasStartedBuildingScene = false
     private var isSceneReady = false
@@ -41,6 +43,9 @@ final class CalligramSceneController {
 
     /// Human-readable summary of the last applied mesh, for the control panel.
     private(set) var lastBuildSummary = ""
+
+    /// Whether glyphs use the view-dependent iridescent shader (false = flat unlit fallback).
+    private(set) var isIridescentMaterialAvailable = false
 
     // MARK: - Scene setup
 
@@ -68,6 +73,7 @@ final class CalligramSceneController {
         await addSkyDome()
         await addGroundGrid()
         await loadGlyphAtlas()
+        await loadIridescentMaterial()
 
         isSceneReady = true
         if let pending = pendingApply {
@@ -106,6 +112,21 @@ final class CalligramSceneController {
         atlasTexture = try? await TextureResource(
             image: image,
             options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
+    }
+
+    private func loadIridescentMaterial() async {
+        guard let atlasTexture, var material = await IridescentGlyphMaterial.load() else {
+            isIridescentMaterialAvailable = false
+            return
+        }
+        do {
+            try material.setParameter(name: "atlas", value: .textureResource(atlasTexture))
+            iridescentTemplate = material
+            isIridescentMaterialAvailable = true
+        } catch {
+            print("[CalligramSceneController] atlas parameter rejected: \(error)")
+            isIridescentMaterialAvailable = false
+        }
     }
 
     // MARK: - Applying program output
@@ -147,19 +168,53 @@ final class CalligramSceneController {
             return
         }
 
-        let materials = meshData.palette.map { makeGlyphMaterial(color: $0, texture: atlasTexture) }
+        let materials = makeMaterials(palette: meshData.palette, atlas: atlasTexture, settings: settings)
         if let model = calligramModel {
-            model.model = ModelComponent(mesh: mesh, materials: materials)
+            model.model = ModelComponent(mesh: mesh, materials: materials.list)
         } else {
-            let model = ModelEntity(mesh: mesh, materials: materials)
+            let model = ModelEntity(mesh: mesh, materials: materials.list)
             model.name = "Calligram"
             pivot.addChild(model)
             calligramModel = model
         }
-        lastBuildSummary = "쿼드 \(meshData.quadCount.formatted()) · 머티리얼 \(materials.count)"
+        let planes = settings.alwaysVisible ? "교차 2면" : "단면"
+        lastBuildSummary = "쿼드 \(meshData.quadCount.formatted()) · \(planes) · \(materials.kind) \(materials.list.count)"
     }
 
-    private func makeGlyphMaterial(color: SIMD4<Float>, texture: TextureResource) -> UnlitMaterial {
+    // MARK: - Materials
+
+    /// One material per palette entry. Prefers the iridescent shader graph and falls back to
+    /// a flat unlit material if the graph could not be loaded or a parameter is rejected.
+    private func makeMaterials(palette: [SIMD4<Float>],
+                               atlas: TextureResource,
+                               settings: CalligramRenderSettings) -> (list: [any Material], kind: String) {
+        if let template = iridescentTemplate {
+            var materials: [any Material] = []
+            materials.reserveCapacity(palette.count)
+            var failed = false
+            for color in palette {
+                var material = template
+                do {
+                    try material.setParameter(name: "baseColor", value: .simd3Float(SIMD3<Float>(color.x, color.y, color.z)))
+                    try material.setParameter(name: "baseOpacity", value: .float(color.w))
+                    try material.setParameter(name: "iridescence", value: .float(settings.iridescence))
+                } catch {
+                    print("[CalligramSceneController] shader parameter rejected: \(error)")
+                    failed = true
+                    break
+                }
+                materials.append(material)
+            }
+            if !failed {
+                return (materials, "무지갯빛")
+            }
+            iridescentTemplate = nil
+            isIridescentMaterialAvailable = false
+        }
+        return (palette.map { makeUnlitGlyphMaterial(color: $0, texture: atlas) }, "단색")
+    }
+
+    private func makeUnlitGlyphMaterial(color: SIMD4<Float>, texture: TextureResource) -> UnlitMaterial {
         var material = UnlitMaterial()
         let tint = PlatformColor(red: CGFloat(color.x), green: CGFloat(color.y), blue: CGFloat(color.z), alpha: 1)
         material.color = .init(tint: tint, texture: .init(texture))
