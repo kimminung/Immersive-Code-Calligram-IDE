@@ -20,7 +20,12 @@ final class CalligramSceneController {
         case immersive
         /// macOS/iOS window: entity centered at the origin, viewed by a virtual camera.
         case preview
+        /// iPhone/iPad AR: root is parented to a plane anchor, no sky dome or ground grid.
+        case ar
     }
+
+    /// How far the calligram floats above the detected surface in AR mode (meters).
+    private static let arLift = SIMD3<Float>(0, 0.45, 0)
 
     /// Add this to the `RealityView` content.
     let root = Entity()
@@ -68,10 +73,15 @@ final class CalligramSceneController {
             holder.position = .zero
             cameraEntity.camera.fieldOfViewInDegrees = 55
             cameraEntity.look(at: .zero, from: SIMD3<Float>(0, 0.3, 2.4), relativeTo: nil)
+        case .ar:
+            holder.position = Self.arLift
         }
 
-        await addSkyDome()
-        await addGroundGrid()
+        // The real world is the backdrop in AR; the procedural sky and grid would hide it.
+        if mode != .ar {
+            await addSkyDome()
+            await addGroundGrid()
+        }
         await loadGlyphAtlas()
         await loadIridescentMaterial()
 
@@ -115,6 +125,12 @@ final class CalligramSceneController {
     }
 
     private func loadIridescentMaterial() async {
+        #if targetEnvironment(simulator)
+        // The iOS simulator's Metal backend caps shader buffers below what the shader graph needs
+        // and fails pipeline compilation; use the flat unlit glyphs there. Devices are unaffected.
+        isIridescentMaterialAvailable = false
+        return
+        #else
         guard let atlasTexture, var material = await IridescentGlyphMaterial.load() else {
             isIridescentMaterialAvailable = false
             return
@@ -127,6 +143,7 @@ final class CalligramSceneController {
             print("[CalligramSceneController] atlas parameter rejected: \(error)")
             isIridescentMaterialAvailable = false
         }
+        #endif
     }
 
     // MARK: - Applying program output
@@ -138,7 +155,11 @@ final class CalligramSceneController {
         }
 
         pivot.components.set(SpinComponent(speed: settings.isSpinning ? settings.spinSpeed : 0))
-        holder.position = mode == .preview ? .zero : settings.immersivePosition
+        switch mode {
+        case .preview: holder.position = .zero
+        case .immersive: holder.position = settings.immersivePosition
+        case .ar: break // Placement is owned by the plane anchor and the user's gestures.
+        }
 
         guard let output, !output.points.isEmpty, let atlasTexture else {
             calligramModel?.removeFromParent()
@@ -224,6 +245,20 @@ final class CalligramSceneController {
         material.opacityThreshold = 0.35
         material.faceCulling = .none
         return material
+    }
+
+    // MARK: - AR manipulation
+
+    /// Uniform scale applied by the pinch gesture in AR mode.
+    func setARScale(_ scale: Float) {
+        guard mode == .ar else { return }
+        holder.scale = SIMD3<Float>(repeating: min(max(scale, 0.25), 4))
+    }
+
+    /// Manual yaw from the drag gesture in AR mode; the auto-spin on the pivot adds on top.
+    func setARYaw(_ yaw: Float) {
+        guard mode == .ar else { return }
+        holder.orientation = simd_quatf(angle: yaw, axis: SIMD3<Float>(0, 1, 0))
     }
 
     // MARK: - Preview camera

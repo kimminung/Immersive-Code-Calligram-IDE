@@ -2,10 +2,21 @@ import SwiftUI
 
 /// Main window.
 /// - Regular width (Mac, iPad landscape, visionOS): editor | preview (non-visionOS) | controls side by side.
-/// - Compact width (iPhone, iPad Split View): tabs for code, preview, and settings.
+/// - Compact width (iPhone, iPad Split View): tabs for code, preview, AR (real iOS devices), and settings.
 struct ContentView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    #if os(iOS)
+    /// Which view fills the preview column on iPad. AR is offered only on real devices.
+    enum PreviewMode: String, CaseIterable, Identifiable {
+        case virtual = "가상 카메라"
+        case ar = "AR"
+        var id: String { rawValue }
+    }
+
+    @State private var previewMode: PreviewMode = .virtual
+    #endif
 
     var body: some View {
         Group {
@@ -33,7 +44,7 @@ struct ContentView: View {
             Divider()
 
             #if !os(visionOS)
-            PreviewCanvasView()
+            previewColumn
                 .frame(minWidth: 240)
                 .layoutPriority(1)
             Divider()
@@ -43,6 +54,38 @@ struct ContentView: View {
                 .frame(width: 280)
         }
     }
+
+    #if !os(visionOS)
+    /// Preview area for the regular layout. On iPad with a camera it can switch to AR placement.
+    @ViewBuilder
+    private var previewColumn: some View {
+        #if os(iOS)
+        if ARSupport.isAvailable {
+            VStack(spacing: 0) {
+                Picker("프리뷰 방식", selection: $previewMode) {
+                    ForEach(PreviewMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                Divider()
+                switch previewMode {
+                case .virtual:
+                    PreviewCanvasView()
+                case .ar:
+                    arViewIfAvailable
+                }
+            }
+        } else {
+            PreviewCanvasView()
+        }
+        #else
+        PreviewCanvasView()
+        #endif
+    }
+    #endif
 
     // MARK: - Compact width
 
@@ -54,7 +97,13 @@ struct ContentView: View {
             #if !os(visionOS)
             Tab("프리뷰", systemImage: "cube.transparent") {
                 PreviewCanvasView()
-                    .ignoresSafeArea(edges: .bottom)
+            }
+            #endif
+            #if os(iOS)
+            if ARSupport.isAvailable {
+                Tab("AR", systemImage: "arkit") {
+                    arViewIfAvailable
+                }
             }
             #endif
             Tab("설정", systemImage: "slider.horizontal.3") {
@@ -62,6 +111,19 @@ struct ContentView: View {
             }
         }
     }
+
+    #if os(iOS)
+    /// The AR view exists only in device builds; the simulator never reaches this branch
+    /// because `ARSupport.isAvailable` is false there, but the fallback keeps the code compiling.
+    @ViewBuilder
+    private var arViewIfAvailable: some View {
+        #if targetEnvironment(simulator)
+        PreviewCanvasView()
+        #else
+        ARCalligramView()
+        #endif
+    }
+    #endif
 }
 
 #Preview {

@@ -59,9 +59,18 @@ for i in 0..<n {
     P ← (cos(a) · r, y, sin(a) · r)
 ```
 
+## 브랜치 안내
+
+| 브랜치 | 대상 | 설명 |
+|---|---|---|
+| `main` | Apple Vision Pro (visionOS) | 몰입 공간 버전. 기준 브랜치이며 visionOS 코드는 여기서만 관리합니다. |
+| `ios` | iPhone · iPad | 이 브랜치. 창 프리뷰에 더해 **AR 배치 모드**를 제공합니다. 실기기에서는 카메라로 바닥·책상 같은 평면을 찾아 그 위에 캘리그램을 올리고, 드래그로 회전·핀치로 크기를 조절합니다. 시뮬레이터에는 카메라가 없으므로 AR 탭이 나타나지 않고 가상 카메라 프리뷰만 동작합니다. |
+
+iPhone 레이아웃은 **코드 / 프리뷰 / AR(실기기) / 설정** 탭으로, iPad 가로 레이아웃은 3열에 프리뷰 영역에서 **가상 카메라 ↔ AR** 전환 세그먼트로 구성됩니다.
+
 ## 시작하기
 
-**요구 사항**: visionOS 27 / macOS 27 / iOS 27 SDK가 포함된 Xcode.
+**요구 사항**: visionOS 27 / macOS 27 / iOS 27 SDK가 포함된 Xcode. AR 모드는 ARKit 월드 트래킹을 지원하는 실제 iPhone/iPad가 필요합니다.
 
 1. `Immersive Code Calligram IDE.xcodeproj`를 Xcode로 엽니다.
 2. 실행 대상을 고릅니다.
