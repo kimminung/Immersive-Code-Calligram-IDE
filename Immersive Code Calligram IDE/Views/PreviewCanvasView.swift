@@ -15,33 +15,49 @@ struct PreviewCanvasView: View {
     @State private var magnificationBaseline: Float?
 
     var body: some View {
-        RealityView { content in
-            content.camera = .virtual
-            await controller.makeScene(mode: .preview)
-            content.add(controller.root)
-            content.add(controller.cameraEntity)
-            controller.updatePreviewCamera(yaw: yaw, pitch: pitch, distance: distance)
-        } update: { _ in
-            controller.updatePreviewCamera(yaw: yaw, pitch: pitch, distance: distance)
+        ZStack {
+            // The 3D view may extend under bars; the captions below stay inside the safe area.
+            RealityView { content in
+                content.camera = .virtual
+                await controller.makeScene(mode: .preview)
+                content.add(controller.root)
+                content.add(controller.cameraEntity)
+                controller.updatePreviewCamera(yaw: yaw, pitch: pitch, distance: distance)
+            } update: { _ in
+                controller.updatePreviewCamera(yaw: yaw, pitch: pitch, distance: distance)
+            }
+            .ignoresSafeArea()
+            .gesture(orbitGesture)
+            .simultaneousGesture(zoomGesture)
+
+            VStack {
+                HStack {
+                    Spacer()
+                    caption("드래그: 회전 · 핀치: 거리")
+                }
+                Spacer()
+                HStack {
+                    caption(controller.lastBuildSummary)
+                    Spacer()
+                }
+            }
+            .padding(8)
+            .allowsHitTesting(false)
         }
-        .gesture(orbitGesture)
-        .simultaneousGesture(zoomGesture)
         .task(id: appModel.revision) {
             await controller.apply(output: appModel.output, settings: appModel.settings)
         }
-        .overlay(alignment: .bottomLeading) {
-            Text(controller.lastBuildSummary)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .padding(8)
-        }
-        .overlay(alignment: .topTrailing) {
-            Text("드래그: 회전 · 핀치: 거리")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .padding(8)
-        }
-        .background(Color.black)
+        .background(Color.black.ignoresSafeArea())
+    }
+
+    private func caption(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.white.opacity(0.85))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.black.opacity(0.45), in: Capsule())
+            .opacity(text.isEmpty ? 0 : 1)
     }
 
     private var orbitGesture: some Gesture {
