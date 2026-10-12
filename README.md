@@ -1,6 +1,9 @@
 <div align="center">
 
 # Immersive Code Calligram IDE
+<img width="1920" height="1080" alt="Immersive-Code-Calligram-IDE_Thumbnail" src="https://github.com/user-attachments/assets/9b1460d5-dac7-41da-b3e4-ea77a51863eb" />
+https://youtu.be/UmWU9bH3i3U
+
 
 **코드의 글자로 그리는 3D 캘리그램**
 
