@@ -11,7 +11,7 @@
 [![Swift](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](#)
 [![SwiftUI](https://img.shields.io/badge/SwiftUI-RealityKit-0A84FF)](#)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-[![Branches](https://img.shields.io/badge/branches-main%20(visionOS)%20·%20ios%20(iPhone%20%2F%20iPad)-34C759)](#브랜치)
+[![Branch](https://img.shields.io/badge/branch-ios%20·%20iPhone%20%2F%20iPad-34C759)](#브랜치)
 
 <br/>
 
