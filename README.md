@@ -5,6 +5,11 @@
 | Immersive Code Calligram IDE |
 | --- |
 | <img width="1920" height="1080" alt="Immersive-Code-Calligram-IDE_Thumbnail" src="https://github.com/user-attachments/assets/9b1460d5-dac7-41da-b3e4-ea77a51863eb" /> | 
+
+
+https://github.com/user-attachments/assets/47dc82f9-6878-4820-b0f2-e175dfb6572e
+
+
 | ▶ https://youtu.be/UmWU9bH3i3U |
 
 
